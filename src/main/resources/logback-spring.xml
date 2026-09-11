@@ -1,0 +1,50 @@
+<configuration>
+
+  <!-- ── Console appender ───────────────────────────────────────────────── -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %-40.40logger{39} : %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- ── Rolling file appender ─────────────────────────────────────────── -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>logs/job-signal-ai.log</file>
+
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <!-- Daily rollover, keep 30 days, cap total size at 500 MB -->
+      <fileNamePattern>logs/job-signal-ai.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>50MB</maxFileSize>
+      <maxHistory>30</maxHistory>
+      <totalSizeCap>500MB</totalSizeCap>
+    </rollingPolicy>
+
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %-40.40logger{39} : %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- ── Package-level tuning ──────────────────────────────────────────── -->
+
+  <!-- Show all collector INFO/WARN/ERROR logs clearly -->
+  <logger name="com.jobsignal.ai" level="INFO"/>
+
+  <!-- Suppress noisy Hibernate SQL — keep at WARN unless debugging -->
+  <logger name="org.hibernate.SQL"                         level="WARN"/>
+  <logger name="org.hibernate.orm.jdbc.bind"               level="WARN"/>
+
+  <!-- Flyway startup info is useful -->
+  <logger name="org.flywaydb"                              level="INFO"/>
+
+  <!-- Spring boot startup — reduce to WARN in production -->
+  <logger name="org.springframework.web"                   level="WARN"/>
+  <logger name="org.springframework.boot.web"              level="INFO"/>
+  <logger name="org.springframework.boot.autoconfigure"    level="WARN"/>
+
+  <!-- ── Root ──────────────────────────────────────────────────────────── -->
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+  </root>
+
+</configuration>

@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobSignal AI</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      background: #f0f2f5;
+      color: #1f2328;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1f2328;
+      color: #fff;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .header-left h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-left span { font-size: 12px; color: #8b949e; margin-top: 2px; display: block; }
+
+    .collect-btn {
+      background: #238636; color: #fff; border: none;
+      padding: 8px 16px; border-radius: 6px;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: background 0.15s; white-space: nowrap;
+    }
+    .collect-btn:hover { background: #2ea043; }
+    .collect-btn:disabled { background: #57606a; cursor: not-allowed; }
+
+    /* ── Layout ── */
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+
+    /* ── Summary bar ── */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px; margin-bottom: 24px;
+    }
+    .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 18px; }
+    .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #57606a; }
+    .stat-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+    .stat-card.apply-now .value { color: #16a34a; }
+    .stat-card.apply     .value { color: #3b82d4; }
+    .stat-card.consider  .value { color: #d97706; }
+    .stat-card.skip      .value { color: #dc2626; }
+    .stat-card.total     .value { color: #1f2328; }
+    .stat-card.applied   .value { color: #7c5cd8; }
+    .stat-card.archived  .value { color: #57606a; }
+    .stat-card.removed   .value { color: #9ca3af; }
+
+    /* ── Status bar ── */
+    #status-bar {
+      text-align: center; padding: 10px; font-size: 13px;
+      color: #57606a; margin-bottom: 12px; display: none;
+    }
+    #status-bar.visible { display: block; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; }
+    .tab-btn {
+      background: none; border: none; padding: 10px 20px;
+      font-size: 14px; font-weight: 500; color: #57606a; cursor: pointer;
+      border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color 0.15s;
+    }
+    .tab-btn:hover { color: #1f2328; }
+    .tab-btn.active { color: #1f2328; font-weight: 600; border-bottom-color: #1f2328; }
+    .tab-badge {
+      display: inline-block; background: #e5e7eb; color: #57606a;
+      font-size: 11px; font-weight: 600; padding: 1px 6px;
+      border-radius: 10px; margin-left: 5px; vertical-align: middle;
+    }
+    .tab-badge.live { background: #dcfce7; color: #15803d; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Controls row (sort + location filter) ── */
+    .controls {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      align-items: center; margin-bottom: 16px;
+    }
+    .sort-group { display: flex; gap: 0; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; }
+    .sort-btn {
+      background: #fff; border: none; padding: 6px 14px;
+      font-size: 12px; font-weight: 500; cursor: pointer; color: #57606a;
+      transition: background 0.12s;
+    }
+    .sort-btn + .sort-btn { border-left: 1px solid #e5e7eb; }
+    .sort-btn.active { background: #1f2328; color: #fff; font-weight: 600; }
+
+    .loc-wrap { position: relative; flex: 1; min-width: 180px; max-width: 320px; }
+    .loc-wrap input {
+      width: 100%; padding: 6px 32px 6px 10px; border: 1px solid #e5e7eb;
+      border-radius: 6px; font-size: 13px; background: #fff; color: #1f2328;
+      outline: none;
+    }
+    .loc-wrap input:focus { border-color: #3b82d4; }
+    .loc-wrap input::placeholder { color: #9ca3af; }
+    .loc-clear {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: #9ca3af;
+      font-size: 14px; line-height: 1; display: none;
+    }
+    .loc-clear.visible { display: block; }
+
+    /* ── Filter chips ── */
+    .filters {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 20px; align-items: center;
+    }
+    .filter-btn {
+      border: 1px solid #e5e7eb; background: #fff;
+      padding: 5px 14px; border-radius: 20px; font-size: 13px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .filter-btn:hover { border-color: #3b82d4; color: #3b82d4; }
+    .filter-btn.active { background: #1f2328; color: #fff; border-color: #1f2328; }
+    .filter-label { font-size: 12px; color: #57606a; }
+
+    /* ── Empty / error ── */
+    #empty { text-align: center; padding: 60px 0; color: #57606a; font-size: 15px; display: none; }
+    #empty p { margin-top: 8px; font-size: 13px; }
+    #error  { color: #dc2626; text-align: center; padding: 60px 0; display: none; font-size: 15px; }
+
+    /* ── Cards grid ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+
+    .card {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+      padding: 20px; display: flex; flex-direction: column; gap: 14px;
+      transition: box-shadow 0.15s;
+    }
+    .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+    .card.hidden   { display: none; }
+    .card.faded    { opacity: 0.45; }
+    .card.archived { opacity: 0.6; background: #f7f8fa; }
+
+    .card.APPLY_NOW { border-top: 4px solid #16a34a; }
+    .card.APPLY     { border-top: 4px solid #3b82d4; }
+    .card.CONSIDER  { border-top: 4px solid #d97706; }
+    .card.SKIP      { border-top: 4px solid #dc2626; }
+
+    /* ── Card header ── */
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .card-meta   { flex: 1; min-width: 0; }
+    .card-company { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #57606a; margin-bottom: 3px; }
+    .card-title   { font-size: 15px; font-weight: 600; line-height: 1.3; }
+    .card-location { font-size: 12px; color: #57606a; margin-top: 3px; }
+    .card-posted   { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+    .badge-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+    .badge { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+    .badge.APPLY_NOW { background: #dcfce7; color: #15803d; }
+    .badge.APPLY     { background: #dbeafe; color: #1d4ed8; }
+    .badge.CONSIDER  { background: #fef9c3; color: #92400e; }
+    .badge.SKIP      { background: #fee2e2; color: #991b1b; }
+
+    .freshness { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+    .freshness.HOT          { background: #fee2e2; color: #991b1b; }
+    .freshness.NEW          { background: #dcfce7; color: #15803d; }
+    .freshness.ACTIVE       { background: #dbeafe; color: #1d4ed8; }
+    .freshness.OLD          { background: #f3f4f6; color: #57606a; }
+    .freshness.LOW_PRIORITY { background: #f3f4f6; color: #9ca3af; }
+
+    /* ── Score ring ── */
+    .score-row { display: flex; align-items: center; gap: 16px; }
+    svg.ring   { width: 68px; height: 68px; flex-shrink: 0; }
+    .ring-bg   { fill: none; stroke: #e5e7eb; stroke-width: 6; }
+    .ring-arc  { fill: none; stroke-width: 6; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; }
+    .ring-label { text-anchor: middle; dominant-baseline: middle; font-size: 14px; font-weight: 700; }
+    .score-meta .fit-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #57606a; }
+    .score-meta .fit-val   { font-size: 14px; font-weight: 600; margin-top: 2px; }
+    .fit-val.HIGH   { color: #16a34a; }
+    .fit-val.MEDIUM { color: #d97706; }
+    .fit-val.LOW    { color: #dc2626; }
+
+    /* ── Dimension bars ── */
+    .dims { display: flex; flex-direction: column; gap: 5px; }
+    .dim-row  { display: flex; align-items: center; gap: 8px; }
+    .dim-name { width: 86px; color: #57606a; flex-shrink: 0; font-size: 11px; }
+    .bar-track { flex: 1; background: #f0f2f5; border-radius: 4px; height: 5px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 4px; }
+    .dim-val   { width: 24px; text-align: right; font-variant-numeric: tabular-nums; color: #57606a; font-size: 11px; }
+
+    /* ── Tags ── */
+    .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #57606a; margin-bottom: 5px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag { font-size: 11px; padding: 2px 7px; border-radius: 6px; }
+    .tag.strength { background: #dcfce7; color: #15803d; }
+    .tag.gap      { background: #fee2e2; color: #991b1b; }
+    .no-tags      { font-size: 12px; color: #8b949e; font-style: italic; }
+
+    /* ── Job link + actions ── */
+    .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .job-link { font-size: 12px; color: #3b82d4; text-decoration: none; cursor: pointer; }
+    .job-link:hover { text-decoration: underline; }
+    .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .action-btn {
+      background: none; border: 1px solid #e5e7eb; border-radius: 6px;
+      padding: 4px 9px; font-size: 11px; cursor: pointer; color: #57606a;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .action-btn:hover { border-color: #57606a; color: #1f2328; }
+    .action-btn.archive:hover  { border-color: #d97706; color: #d97706; }
+    .action-btn.activate:hover { border-color: #16a34a; color: #16a34a; }
+    .action-btn.delete:hover   { border-color: #dc2626; color: #dc2626; }
+    .action-btn.undo-apply:hover { border-color: #7c5cd8; color: #7c5cd8; }
+
+    /* ── Applied banner on card ── */
+    .applied-banner {
+      display: flex; align-items: center; gap: 6px;
+      background: #dcfce7; border: 1px solid #86efac; border-radius: 6px;
+      padding: 5px 10px; font-size: 11px; font-weight: 600; color: #15803d;
+      margin-bottom: 2px;
+    }
+
+    /* ── Apply-prompt modal ── */
+    .apply-prompt {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: none; align-items: center; justify-content: center; z-index: 1100;
+    }
+    .apply-prompt.visible { display: flex; }
+    .apply-box {
+      background: #fff; border-radius: 12px; padding: 28px 32px;
+      max-width: 380px; width: 100%; text-align: center;
+    }
+    .apply-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .apply-box p  { font-size: 13px; color: #57606a; margin-bottom: 20px; line-height: 1.5; }
+    .apply-btns   { display: flex; gap: 10px; justify-content: center; }
+    .apply-btn    { padding: 8px 24px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+    .apply-btn.yes { background: #16a34a; color: #fff; }
+    .apply-btn.yes:hover { background: #15803d; }
+    .apply-btn.no  { background: #f0f2f5; color: #1f2328; }
+    .apply-btn.no:hover  { background: #e5e7eb; }
+
+    /* ── Confirm overlay ── */
+    .confirm-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; display: none;
+    }
+    .confirm-overlay.visible { display: flex; }
+    .confirm-box {
+      background: #fff; border-radius: 12px; padding: 28px 32px;
+      max-width: 360px; width: 100%; text-align: center;
+    }
+    .confirm-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+    .confirm-box p  { font-size: 13px; color: #57606a; margin-bottom: 20px; }
+    .confirm-btns   { display: flex; gap: 10px; justify-content: center; }
+    .confirm-btn    { padding: 8px 22px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+    .confirm-btn.cancel  { background: #f0f2f5; color: #1f2328; }
+    .confirm-btn.danger  { background: #dc2626; color: #fff; }
+
+    /* ── Scan Details tab ── */
+    .scan-layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 700px) {
+      .scan-layout { grid-template-columns: 1fr; }
+    }
+
+    /* Left pane — scan list */
+    .scan-list-pane {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;
+    }
+    .scan-list-header {
+      font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      color: #57606a; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; background: #f7f8fa;
+    }
+    .scan-list-item {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 10px 16px; border-bottom: 1px solid #f3f4f6;
+      cursor: pointer; transition: background 0.12s;
+    }
+    .scan-list-item:last-child { border-bottom: none; }
+    .scan-list-item:hover { background: #f7f8fa; }
+    .scan-list-item.selected { background: #eff6ff; border-left: 3px solid #3b82d4; padding-left: 13px; }
+    .sli-date { font-size: 13px; font-weight: 500; color: #1f2328; }
+    .sli-meta { font-size: 11px; color: #57606a; display: flex; gap: 8px; align-items: center; }
+    .sli-count { font-size: 11px; font-weight: 600; color: #3b82d4; }
+    #scan-list-empty { padding: 20px 16px; font-size: 13px; color: #57606a; }
+
+    /* Right pane — detail */
+    .scan-detail-pane { min-width: 0; }
+    .scan-details-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .scan-details-header h2 { font-size: 16px; font-weight: 600; }
+    .scan-details-header .scan-meta { font-size: 12px; color: #57606a; }
+    .scan-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .scan-kpi { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 18px; }
+    .scan-kpi .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #57606a; }
+    .scan-kpi .kpi-value { font-size: 26px; font-weight: 700; margin-top: 4px; color: #1f2328; }
+    .scan-kpi .kpi-sub   { font-size: 11px; color: #57606a; margin-top: 2px; }
+    .trigger-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 10px; }
+    .trigger-badge.MANUAL    { background: #dbeafe; color: #1d4ed8; }
+    .trigger-badge.SCHEDULER { background: #f3f4f6; color: #57606a; }
+    .company-breakdown { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+    .cb-title { font-size: 13px; font-weight: 600; padding: 14px 18px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; }
+    .cb-title span { font-size: 11px; font-weight: 400; color: #57606a; }
+    .cb-row { display: grid; grid-template-columns: 1fr 100px 24px; align-items: center; padding: 10px 18px; gap: 12px; border-bottom: 1px solid #f3f4f6; }
+    .cb-row:last-child { border-bottom: none; }
+    .cb-company { font-size: 13px; font-weight: 500; }
+    .cb-bar-wrap { position: relative; height: 6px; background: #f0f2f5; border-radius: 4px; overflow: hidden; }
+    .cb-bar-fill { height: 100%; border-radius: 4px; background: #3b82d4; }
+    .cb-bar-fill.zero { background: #e5e7eb; }
+    .cb-num { font-size: 12px; font-weight: 700; color: #3b82d4; text-align: right; }
+    .cb-num.zero { color: #9ca3af; }
+    .scan-detail-placeholder { text-align: center; padding: 60px 0; color: #57606a; font-size: 14px; }
+    #scan-empty { text-align: center; padding: 60px 0; color: #57606a; font-size: 15px; }
+    #scan-empty p { margin-top: 8px; font-size: 13px; }
+
+    /* ── Company dashboard ── */
+    .co-section { margin-bottom: 28px; }
+    .co-section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+      color: #57606a; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    }
+    .tier-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 50%;
+      font-size: 11px; font-weight: 700;
+    }
+    .tier-badge.A { background: #fef9c3; color: #854d0e; }
+    .tier-badge.B { background: #dbeafe; color: #1e40af; }
+    .tier-badge.C { background: #f3f4f6; color: #57606a; }
+
+    .co-table { width: 100%; border-collapse: collapse; background: #fff;
+      border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+    .co-table th {
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      color: #57606a; padding: 10px 14px; background: #f7f8fa;
+      border-bottom: 1px solid #e5e7eb; text-align: left; white-space: nowrap;
+    }
+    .co-table th.num { text-align: right; }
+    .co-table td { padding: 10px 14px; border-bottom: 1px solid #f3f4f6; font-size: 13px; vertical-align: middle; }
+    .co-table tr:last-child td { border-bottom: none; }
+    .co-table tr:hover td { background: #f9fafb; }
+    .co-table tr.clickable { cursor: pointer; }
+    .co-table tr.clickable:hover td { background: #eff6ff; }
+    .co-table tr.co-row-live td:first-child::after {
+      content: ' ✓'; color: #16a34a; font-size: 10px;
+    }
+
+    .co-name { font-weight: 600; color: #1f2328; }
+    .co-name a { color: inherit; text-decoration: none; }
+    .co-name a:hover { text-decoration: underline; color: #3b82d4; }
+    .co-src { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+    .co-num { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+    .co-num.zero { color: #9ca3af; }
+    .co-score { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .co-score.high   { color: #16a34a; }
+    .co-score.medium { color: #d97706; }
+    .co-score.low    { color: #dc2626; }
+    .co-score.none   { color: #9ca3af; font-weight: 400; }
+
+    .co-rec-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; min-width: 80px; }
+    .co-rec-seg { height: 100%; }
+    .co-rec-seg.APPLY_NOW { background: #16a34a; }
+    .co-rec-seg.APPLY     { background: #3b82d4; }
+    .co-rec-seg.CONSIDER  { background: #d97706; }
+    .co-rec-seg.SKIP      { background: #dc2626; }
+    .co-rec-seg.empty     { background: #e5e7eb; width: 100%; }
+
+    .co-status-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+    .co-pill { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 8px; white-space: nowrap; }
+    .co-pill.applied  { background: #ede9fe; color: #6d28d9; }
+    .co-pill.archived { background: #f3f4f6; color: #57606a; }
+
+    .co-empty { text-align: center; padding: 60px 0; color: #57606a; font-size: 15px; }
+
+    /* ── Collect live progress ── */
+    #collect-progress {
+      display: none; background: #f7f8fa; border: 1px solid #e5e7eb;
+      border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 12px;
+    }
+    #collect-progress.visible { display: block; }
+    .cp-header { font-weight: 600; color: #1f2328; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .cp-grid { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+    .cp-item { font-size: 11px; color: #57606a; white-space: nowrap; }
+    .cp-item.done { color: #16a34a; font-weight: 600; }
+    .cp-item.zero { color: #9ca3af; }
+
+    /* ── Company detail drawer ── */
+    .co-drawer-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      z-index: 200; align-items: stretch; justify-content: flex-end;
+    }
+    .co-drawer-overlay.open { display: flex; }
+    .co-drawer {
+      width: min(660px, 100vw); background: #fff; height: 100%;
+      overflow-y: auto; box-shadow: -4px 0 24px rgba(0,0,0,.12);
+      display: flex; flex-direction: column;
+    }
+    .co-drawer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0;
+      background: #fff; z-index: 1;
+    }
+    .co-drawer-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
+    .co-drawer-close {
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      color: #57606a; line-height: 1; padding: 2px 6px;
+    }
+    .co-drawer-close:hover { color: #1f2328; }
+    .co-drawer-body { padding: 20px; flex: 1; }
+    .co-drawer-kpis {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 10px; margin-bottom: 20px;
+    }
+    .co-drawer-kpi { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; }
+    .co-drawer-kpi .k-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #57606a; }
+    .co-drawer-kpi .k-val   { font-size: 22px; font-weight: 700; margin-top: 2px; color: #1f2328; }
+    .co-drawer-kpi .k-val.green  { color: #16a34a; }
+    .co-drawer-kpi .k-val.blue   { color: #3b82d4; }
+    .co-drawer-kpi .k-val.amber  { color: #d97706; }
+    .co-drawer-kpi .k-val.purple { color: #7c5cd8; }
+    .co-drawer-divider { font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.6px; color: #57606a; margin: 16px 0 10px; }
+    .co-drawer-cards { display: flex; flex-direction: column; gap: 12px; }
+    .co-drawer-cards .card { margin: 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>JobSignal AI</h1>
+    <span>Resume match analysis — Manjunath R</span>
+  </div>
+  <button class="collect-btn" id="collect-btn" onclick="triggerCollect()">⟳ Collect Jobs Now</button>
+</header>
+
+<!-- ── Live collect progress ── -->
+<div class="container" style="padding-bottom:0">
+  <div id="collect-progress">
+    <div class="cp-header">
+      <span id="cp-title">Collecting jobs…</span>
+      <span id="cp-done-count" style="color:#57606a;font-weight:400"></span>
+    </div>
+    <div class="cp-grid" id="cp-grid"></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ── Stats ── -->
+  <div class="summary">
+    <div class="stat-card total">
+      <div class="label">Jobs Shown</div>
+      <div class="value" id="stat-total">—</div>
+    </div>
+    <div class="stat-card apply-now">
+      <div class="label">Apply Now</div>
+      <div class="value" id="stat-apply-now">—</div>
+    </div>
+    <div class="stat-card apply">
+      <div class="label">Apply</div>
+      <div class="value" id="stat-apply">—</div>
+    </div>
+    <div class="stat-card consider">
+      <div class="label">Consider</div>
+      <div class="value" id="stat-consider">—</div>
+    </div>
+    <div class="stat-card skip">
+      <div class="label">Skip</div>
+      <div class="value" id="stat-skip">—</div>
+    </div>
+    <div class="stat-card applied">
+      <div class="label">Applied</div>
+      <div class="value" id="stat-applied">—</div>
+    </div>
+    <div class="stat-card archived">
+      <div class="label">Archived</div>
+      <div class="value" id="stat-archived">—</div>
+    </div>
+  </div>
+
+  <div id="status-bar"></div>
+
+  <!-- ── Tabs ── -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-jobs-btn" onclick="switchTab('jobs')">
+      Jobs <span class="tab-badge" id="tab-jobs-count"></span>
+    </button>
+    <button class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')">
+      Companies <span class="tab-badge" id="tab-companies-count"></span>
+    </button>
+    <button class="tab-btn" id="tab-scan-btn" onclick="switchTab('scan')">
+      Scan Details <span class="tab-badge" id="tab-scan-badge"></span>
+    </button>
+  </div>
+
+  <!-- ── Jobs panel ── -->
+  <div class="tab-panel active" id="tab-jobs">
+
+    <!-- Sort + Location + Company filter row -->
+    <div class="controls">
+      <div class="sort-group">
+        <button class="sort-btn active" id="sort-score-btn"  onclick="setSort('score')">Best Match</button>
+        <button class="sort-btn"        id="sort-posted-btn" onclick="setSort('posted')">Newest First</button>
+      </div>
+
+      <div class="loc-wrap">
+        <input type="text" id="loc-input" placeholder="Filter by location…" oninput="onLocInput()" />
+        <button class="loc-clear" id="loc-clear" onclick="clearLoc()">✕</button>
+      </div>
+
+      <div class="loc-wrap">
+        <input type="text" id="co-input" placeholder="Filter by company…" oninput="onCoInput()" />
+        <button class="loc-clear" id="co-clear" onclick="clearCo()">✕</button>
+      </div>
+    </div>
+
+    <!-- Status view chips (Active / Applied / Archived) -->
+    <div class="filters">
+      <span class="filter-label">View:</span>
+      <button class="filter-btn status-btn active" data-status="ACTIVE"   onclick="setStatusView('ACTIVE',this)">Active</button>
+      <button class="filter-btn status-btn"        data-status="APPLIED"  onclick="setStatusView('APPLIED',this)">✓ Applied</button>
+      <button class="filter-btn status-btn"        data-status="ARCHIVED" onclick="setStatusView('ARCHIVED',this)">📁 Archived</button>
+    </div>
+
+    <!-- Recommendation filter chips (hidden when viewing Applied / Archived) -->
+    <div class="filters" id="rec-filters">
+      <span class="filter-label">Recommendation:</span>
+      <button class="filter-btn active" data-filter="ALL"       onclick="setFilter('ALL',this)">All</button>
+      <button class="filter-btn"        data-filter="APPLY_NOW" onclick="setFilter('APPLY_NOW',this)">Apply Now</button>
+      <button class="filter-btn"        data-filter="APPLY"     onclick="setFilter('APPLY',this)">Apply</button>
+      <button class="filter-btn"        data-filter="CONSIDER"  onclick="setFilter('CONSIDER',this)">Consider</button>
+      <button class="filter-btn"        data-filter="SKIP"      onclick="setFilter('SKIP',this)">Skip</button>
+    </div>
+
+    <div id="error">Failed to load results. Is the server running?</div>
+    <div id="empty">
+      <strong>No jobs found.</strong>
+      <p>Try adjusting the location or company filter, or click "Collect Jobs Now".</p>
+    </div>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <!-- ── Companies panel ── -->
+  <div class="tab-panel" id="tab-companies">
+    <div id="co-table-wrap"></div>
+  </div>
+
+  <!-- ── Scan Details panel ── -->
+  <div class="tab-panel" id="tab-scan">
+    <div id="scan-empty" style="display:none">
+      <strong>No scan has run yet.</strong>
+      <p>Click "Collect Jobs Now" to start the first collection cycle.</p>
+    </div>
+    <div id="scan-layout" class="scan-layout" style="display:none">
+
+      <!-- Left: scan history list -->
+      <div class="scan-list-pane">
+        <div class="scan-list-header">Scan History</div>
+        <div id="scan-list-items">
+          <div id="scan-list-empty">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Right: selected scan detail -->
+      <div class="scan-detail-pane">
+        <div id="scan-detail-placeholder" class="scan-detail-placeholder">
+          Select a scan from the list to view details.
+        </div>
+        <div id="scan-content" style="display:none">
+          <div class="scan-details-header">
+            <h2 id="scan-detail-title">Scan Detail</h2>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="scan-meta" id="scan-time-range"></span>
+              <span class="trigger-badge" id="scan-trigger-badge"></span>
+            </div>
+          </div>
+          <div class="scan-kpis">
+            <div class="scan-kpi">
+              <div class="kpi-label">Raw Jobs Fetched</div>
+              <div class="kpi-value" id="kpi-fetched">—</div>
+              <div class="kpi-sub">across all companies</div>
+            </div>
+            <div class="scan-kpi">
+              <div class="kpi-label">New Jobs Ingested</div>
+              <div class="kpi-value" id="kpi-ingested">—</div>
+              <div class="kpi-sub">after deduplication</div>
+            </div>
+            <div class="scan-kpi">
+              <div class="kpi-label">Already Seen</div>
+              <div class="kpi-value" id="kpi-seen">—</div>
+              <div class="kpi-sub">duplicates skipped</div>
+            </div>
+            <div class="scan-kpi">
+              <div class="kpi-label">Duration</div>
+              <div class="kpi-value" id="kpi-duration">—</div>
+              <div class="kpi-sub">seconds</div>
+            </div>
+          </div>
+          <div class="company-breakdown">
+            <div class="cb-title">Per-Company Breakdown <span id="cb-subtitle"></span></div>
+            <div id="cb-rows"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Delete confirm overlay ── -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <h3 id="confirm-title">Remove job?</h3>
+    <p id="confirm-body">The job will be hidden from the dashboard. The record is kept so it won't be re-ingested on the next scan.</p>
+    <div class="confirm-btns">
+      <button class="confirm-btn cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="confirm-btn danger" id="confirm-ok" onclick="confirmAction()">Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── "Did you apply?" prompt ── -->
+<div class="apply-prompt" id="apply-prompt">
+  <div class="apply-box">
+    <h3>Did you apply?</h3>
+    <p id="apply-prompt-body">Let us know so we can track your application.</p>
+    <div class="apply-btns">
+      <button class="apply-btn yes" id="apply-yes-btn" onclick="confirmApplied()">Yes, I Applied</button>
+      <button class="apply-btn no"  onclick="dismissApplyPrompt()">Not Yet</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const DIM_COLORS = {
+    skill:'#3b82d4', experience:'#7c5cd8', responsibility:'#0891b2',
+    domain:'#d97706', location:'#db2777', other:'#57606a'
+  };
+  const REC_COLORS = {
+    APPLY_NOW:'#16a34a', APPLY:'#3b82d4', CONSIDER:'#d97706', SKIP:'#dc2626'
+  };
+
+  let allJobs        = [];          // full data from server
+  let currentSort    = 'score';     // 'score' | 'posted'
+  let currentFilter  = 'ALL';
+  let currentStatusView = 'ACTIVE'; // 'ACTIVE' | 'APPLIED' | 'ARCHIVED'
+  let currentLoc     = '';
+  let currentCompany = '';
+  let pendingAction  = null;       // { type: 'delete'|'archive'|'activate', jobId }
+
+  // ── Tab switching ─────────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name + '-btn').classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  // ── Sort ──────────────────────────────────────────────────────────────────────
+  function setSort(mode) {
+    if (currentSort === mode) return;
+    currentSort = mode;
+    document.getElementById('sort-score-btn').classList.toggle('active',  mode === 'score');
+    document.getElementById('sort-posted-btn').classList.toggle('active', mode === 'posted');
+    load();
+  }
+
+  // ── Location filter ───────────────────────────────────────────────────────────
+  let locTimer = null;
+  function onLocInput() {
+    currentLoc = document.getElementById('loc-input').value.trim();
+    document.getElementById('loc-clear').classList.toggle('visible', currentLoc.length > 0);
+    clearTimeout(locTimer);
+    locTimer = setTimeout(() => renderCards(), 250);
+  }
+  function clearLoc() {
+    document.getElementById('loc-input').value = '';
+    document.getElementById('loc-clear').classList.remove('visible');
+    currentLoc = '';
+    renderCards();
+  }
+
+  function onCoInput() {
+    currentCompany = document.getElementById('co-input').value.trim();
+    document.getElementById('co-clear').classList.toggle('visible', currentCompany.length > 0);
+    clearTimeout(locTimer);
+    locTimer = setTimeout(() => renderCards(), 250);
+  }
+  function clearCo() {
+    document.getElementById('co-input').value = '';
+    document.getElementById('co-clear').classList.remove('visible');
+    currentCompany = '';
+    renderCards();
+  }
+
+  // ── Status view (Active / Applied / Archived) ─────────────────────────────────
+  function setStatusView(status, btn) {
+    currentStatusView = status;
+    document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Hide recommendation filter when not in Active view
+    document.getElementById('rec-filters').style.display = status === 'ACTIVE' ? '' : 'none';
+    renderCards();
+  }
+
+  // ── Recommendation filter ─────────────────────────────────────────────────────
+  function setFilter(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('#rec-filters .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderCards();
+  }
+
+  function setStatus(msg, visible = true) {
+    const bar = document.getElementById('status-bar');
+    bar.textContent = msg;
+    bar.classList.toggle('visible', visible);
+  }
+
+  // ── Score ring ────────────────────────────────────────────────────────────────
+  function ringArc(score) {
+    const r = 26, circ = 2 * Math.PI * r;
+    return { circ, offset: circ * (1 - score / 100) };
+  }
+
+  // ── Relative time ─────────────────────────────────────────────────────────────
+  function relTime(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 1)   return 'just now';
+    if (h < 24)  return h + 'h ago';
+    const d = Math.floor(h / 24);
+    if (d < 30)  return d + 'd ago';
+    return Math.floor(d / 30) + 'mo ago';
+  }
+
+  // ── Job card renderer ─────────────────────────────────────────────────────────
+  function renderCard(job) {
+    const { circ, offset } = ringArc(job.overallScore);
+    const color = REC_COLORS[job.recommendation] || '#57606a';
+
+    const dims = [
+      { key:'skill',          label:'Skills',         val:job.skillScore,          weight:'30%' },
+      { key:'experience',     label:'Experience',     val:job.experienceScore,     weight:'20%' },
+      { key:'responsibility', label:'Responsibility', val:job.responsibilityScore, weight:'20%' },
+      { key:'domain',         label:'Domain',         val:job.domainScore,         weight:'20%' },
+      { key:'location',       label:'Location',       val:job.locationScore,       weight:'5%'  },
+      { key:'other',          label:'Other',          val:job.otherScore,          weight:'5%'  },
+    ];
+
+    const dimRows = dims.map(d => `
+      <div class="dim-row">
+        <span class="dim-name">${d.label} <span style="color:#d0d3d8">${d.weight}</span></span>
+        <div class="bar-track"><div class="bar-fill" style="width:${d.val}%;background:${DIM_COLORS[d.key]}"></div></div>
+        <span class="dim-val">${d.val}</span>
+      </div>`).join('');
+
+    const strengthTags = job.strengths && job.strengths.length
+      ? job.strengths.map(s => `<span class="tag strength">${s}</span>`).join('')
+      : '<span class="no-tags">None detected</span>';
+
+    const gapTags = job.gaps && job.gaps.length
+      ? job.gaps.map(g => `<span class="tag gap">${g}</span>`).join('')
+      : '<span class="no-tags">No gaps</span>';
+
+    const locStr    = job.location    ? `📍 ${job.location}` : '';
+    const postedStr = job.firstSeenAt ? `Seen ${relTime(job.firstSeenAt)}` : '';
+    const isApplied  = job.jobStatus === 'APPLIED';
+    const isArchived = job.jobStatus === 'ARCHIVED';
+
+    // "View Job" link — intercepts click to prompt "Did you apply?" (only for active jobs)
+    const jobLinkHtml = job.jobUrl
+      ? `<a class="job-link" href="${job.jobUrl}" target="_blank" rel="noopener"
+             onclick="${!isApplied && !isArchived ? `onViewJob(event,${job.jobId},'${job.jobUrl.replace(/'/g,"\\'")}')` : ''}">View Job ↗</a>`
+      : '<span></span>';
+
+    // Applied banner
+    const appliedBanner = isApplied
+      ? `<div class="applied-banner" id="applied-banner-${job.jobId}">✓ Applied
+           <button class="action-btn undo-apply" style="margin-left:auto"
+                   onclick="undoApply(${job.jobId})">↩ Undo</button>
+         </div>`
+      : `<div class="applied-banner" id="applied-banner-${job.jobId}" style="display:none">✓ Applied
+           <button class="action-btn undo-apply" style="margin-left:auto"
+                   onclick="undoApply(${job.jobId})">↩ Undo</button>
+         </div>`;
+
+    // Action buttons differ by current status
+    let actionButtons;
+    if (isArchived) {
+      actionButtons = `
+        <button class="action-btn activate" onclick="activateJob(${job.jobId})">↩ Restore</button>
+        <button class="action-btn delete"   onclick="askRemove(${job.jobId}, '${job.jobTitle.replace(/'/g,"\\'")}')">✕ Remove</button>`;
+    } else if (isApplied) {
+      actionButtons = `
+        <button class="action-btn undo-apply" onclick="undoApply(${job.jobId})">↩ Undo Apply</button>
+        <button class="action-btn archive"    onclick="archiveJob(${job.jobId})">📁 Archive</button>`;
+    } else {
+      actionButtons = `
+        <button class="action-btn archive" onclick="archiveJob(${job.jobId})">📁 Archive</button>
+        <button class="action-btn delete"  onclick="askRemove(${job.jobId}, '${job.jobTitle.replace(/'/g,"\\'")}')">✕ Remove</button>`;
+    }
+
+    const cardExtraClass = isArchived ? ' archived' : '';
+
+    return `
+      <div class="card ${job.recommendation}${cardExtraClass}" id="card-${job.jobId}"
+           data-rec="${job.recommendation}"
+           data-status="${job.jobStatus}"
+           data-loc="${(job.location || '').toLowerCase()}"
+           data-ts="${job.firstSeenAt || ''}">
+        <div class="card-header">
+          <div class="card-meta">
+            <div class="card-company">${job.companyName || ''}</div>
+            <div class="card-title">${job.jobTitle}</div>
+            ${locStr    ? `<div class="card-location">${locStr}</div>` : ''}
+            ${postedStr ? `<div class="card-posted">${postedStr}</div>` : ''}
+          </div>
+          <div class="badge-wrap">
+            <span class="badge ${job.recommendation}">${job.recommendation.replace('_',' ')}</span>
+            <span class="freshness ${job.freshness}">${job.freshness}</span>
+          </div>
+        </div>
+
+        <div class="score-row">
+          <svg class="ring" viewBox="0 0 68 68">
+            <circle class="ring-bg" cx="34" cy="34" r="26"/>
+            <circle class="ring-arc" cx="34" cy="34" r="26"
+              stroke="${color}"
+              stroke-dasharray="${circ.toFixed(2)}"
+              stroke-dashoffset="${offset.toFixed(2)}"/>
+            <text class="ring-label" x="34" y="34" fill="${color}">${job.overallScore}</text>
+          </svg>
+          <div class="score-meta">
+            <div class="fit-label">Interview Fit</div>
+            <div class="fit-val ${job.interviewFit}">${job.interviewFit}</div>
+          </div>
+        </div>
+
+        <div class="dims">${dimRows}</div>
+
+        <div>
+          <div class="section-label">✓ Strengths</div>
+          <div class="tags">${strengthTags}</div>
+        </div>
+        <div>
+          <div class="section-label">✗ Gaps</div>
+          <div class="tags">${gapTags}</div>
+        </div>
+
+        ${appliedBanner}
+
+        <div class="card-footer">
+          ${jobLinkHtml}
+          <div class="card-actions">${actionButtons}</div>
+        </div>
+      </div>`;
+  }
+
+  // ── Render + filter cards (pure client-side) ──────────────────────────────────
+  function renderCards() {
+    const locQ = currentLoc.toLowerCase();
+
+    // Sort client-side
+    let jobs = allJobs.slice();
+    if (currentSort === 'posted') {
+      jobs.sort((a, b) => (b.firstSeenAt || '').localeCompare(a.firstSeenAt || ''));
+    } else {
+      jobs.sort((a, b) => b.overallScore - a.overallScore);
+    }
+
+    // Apply status view first (Active / Applied / Archived)
+    jobs = jobs.filter(j => j.jobStatus === currentStatusView);
+
+    // Apply location filter
+    if (locQ) {
+      jobs = jobs.filter(j => (j.location || '').toLowerCase().includes(locQ));
+    }
+
+    // Apply company filter
+    const coQ = currentCompany.toLowerCase();
+    if (coQ) {
+      jobs = jobs.filter(j => (j.companyName || '').toLowerCase().includes(coQ));
+    }
+
+    // Apply recommendation filter (only relevant in Active view)
+    const visible = (currentFilter === 'ALL' || currentStatusView !== 'ACTIVE')
+      ? jobs
+      : jobs.filter(j => j.recommendation === currentFilter);
+
+    const container = document.getElementById('cards');
+    if (visible.length === 0) {
+      container.innerHTML = '';
+      document.getElementById('empty').style.display = 'block';
+    } else {
+      document.getElementById('empty').style.display = 'none';
+      container.innerHTML = visible.map(renderCard).join('');
+    }
+
+    updateStats(allJobs, visible);
+    document.getElementById('tab-jobs-count').textContent = visible.length;
+  }
+
+  // ── Stats row ────────────────────────────────────────────────────────────────
+  // all = full dataset for global counts; visible = currently shown cards
+  function updateStats(all, visible) {
+    // Recommendation counts reflect only the currently visible cards
+    const shown = visible || all;
+    document.getElementById('stat-total').textContent     = shown.length;
+    document.getElementById('stat-apply-now').textContent = shown.filter(j => j.recommendation === 'APPLY_NOW').length;
+    document.getElementById('stat-apply').textContent     = shown.filter(j => j.recommendation === 'APPLY').length;
+    document.getElementById('stat-consider').textContent  = shown.filter(j => j.recommendation === 'CONSIDER').length;
+    document.getElementById('stat-skip').textContent      = shown.filter(j => j.recommendation === 'SKIP').length;
+    // Applied / Archived always reflect the full dataset
+    document.getElementById('stat-applied').textContent  = all.filter(j => j.jobStatus === 'APPLIED').length;
+    document.getElementById('stat-archived').textContent = all.filter(j => j.jobStatus === 'ARCHIVED').length;
+  }
+
+  // ── Data loader ───────────────────────────────────────────────────────────────
+  async function load() {
+    try {
+      const res = await fetch(`/api/v1/scan?sort=${currentSort}`);
+      if (!res.ok) throw new Error(res.statusText);
+      allJobs = await res.json();
+
+      document.getElementById('error').style.display = 'none';
+      renderCards();
+      renderCompanyTab();
+      setStatus('', false);
+    } catch (e) {
+      document.getElementById('error').style.display = 'block';
+    }
+  }
+
+  // ── Archive / Restore / Delete actions ───────────────────────────────────────
+  async function archiveJob(jobId) {
+    try {
+      const res = await fetch(`/api/v1/jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ARCHIVED' })
+      });
+      if (res.ok) {
+        const job = allJobs.find(j => j.jobId === jobId);
+        if (job) job.jobStatus = 'ARCHIVED';
+        renderCards();
+      }
+    } catch (_) {}
+  }
+
+  async function activateJob(jobId) {
+    try {
+      const res = await fetch(`/api/v1/jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ACTIVE' })
+      });
+      if (res.ok) {
+        const job = allJobs.find(j => j.jobId === jobId);
+        if (job) job.jobStatus = 'ACTIVE';
+        renderCards();
+      }
+    } catch (_) {}
+  }
+
+  // Confirm dialog helpers
+  function askRemove(jobId, title) {
+    pendingAction = { jobId };
+    document.getElementById('confirm-title').textContent = 'Remove this job?';
+    document.getElementById('confirm-body').textContent  =
+      `"${title}" will be hidden from the dashboard. The record is kept so it won't be re-ingested on the next scan.`;
+    document.getElementById('confirm-ok').textContent = 'Remove';
+    document.getElementById('confirm-overlay').classList.add('visible');
+  }
+  function closeConfirm() {
+    pendingAction = null;
+    document.getElementById('confirm-overlay').classList.remove('visible');
+  }
+  async function confirmAction() {
+    if (!pendingAction) return;
+    closeConfirm();
+    const { jobId } = pendingAction;
+    try {
+      // Archive instead of hard-delete — preserves the deduplication key
+      const res = await fetch(`/api/v1/jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ARCHIVED' })
+      });
+      if (res.ok) {
+        allJobs = allJobs.filter(j => j.jobId !== jobId);
+        renderCards();
+      }
+    } catch (_) {}
+  }
+
+  // ── "Did you apply?" prompt ───────────────────────────────────────────────────
+  let pendingApplyJobId = null;
+
+  /**
+   * Called when the user clicks "View Job ↗".
+   * Opens the URL in a new tab, then after a short delay shows the prompt.
+   * Skipped if the job is already marked APPLIED.
+   */
+  function onViewJob(event, jobId, url) {
+    // The link already opens the URL via target="_blank"; we just piggyback here.
+    // Check if already applied — if so, let the link work but skip the prompt.
+    const job = allJobs.find(j => j.jobId === jobId);
+    if (job && job.jobStatus === 'APPLIED') return; // already applied, no prompt
+
+    pendingApplyJobId = jobId;
+    const title = job ? job.jobTitle : 'this job';
+    document.getElementById('apply-prompt-body').textContent =
+      `You just opened "${title}". Did you apply?`;
+
+    // Show after a brief moment so the tab has a chance to open
+    setTimeout(() => {
+      document.getElementById('apply-prompt').classList.add('visible');
+    }, 800);
+  }
+
+  function dismissApplyPrompt() {
+    pendingApplyJobId = null;
+    document.getElementById('apply-prompt').classList.remove('visible');
+  }
+
+  async function confirmApplied() {
+    const jobId = pendingApplyJobId;
+    dismissApplyPrompt();
+    if (!jobId) return;
+
+    try {
+      const res = await fetch(`/api/v1/jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'APPLIED' })
+      });
+      if (res.ok) {
+        const job = allJobs.find(j => j.jobId === jobId);
+        if (job) job.jobStatus = 'APPLIED';
+        renderCards();
+      }
+    } catch (_) {}
+  }
+
+  /**
+   * Revert APPLIED → ACTIVE (the "↩ Undo" button on the card).
+   * Removes the applied state from DB and hides the banner.
+   */
+  async function undoApply(jobId) {
+    try {
+      const res = await fetch(`/api/v1/jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ACTIVE' })
+      });
+      if (res.ok) {
+        const job = allJobs.find(j => j.jobId === jobId);
+        if (job) job.jobStatus = 'ACTIVE';
+        renderCards();
+      }
+    } catch (_) {}
+  }
+
+  // ── Scan list + detail loaders ────────────────────────────────────────────────
+  let selectedScanId = null;
+
+  async function loadScanLogs() {
+    try {
+      const res = await fetch('/api/v1/scan/logs');
+      if (!res.ok) return;
+      const list = await res.json();   // array of summary objects (no entries)
+
+      if (!list || list.length === 0) {
+        document.getElementById('scan-empty').style.display  = 'block';
+        document.getElementById('scan-layout').style.display = 'none';
+        return;
+      }
+
+      document.getElementById('scan-empty').style.display  = 'none';
+      document.getElementById('scan-layout').style.display = 'grid';
+
+      // Update tab badge with count of scans
+      const badge = document.getElementById('tab-scan-badge');
+      badge.textContent = list.length;
+      badge.className   = 'tab-badge live';
+
+      const fmtDate = d => d.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' });
+      const fmtTime = d => d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+
+      document.getElementById('scan-list-items').innerHTML = list.map(s => {
+        const started = s.startedAt ? new Date(s.startedAt) : null;
+        const dateStr = started ? `${fmtDate(started)}, ${fmtTime(started)}` : '—';
+        return `
+          <div class="scan-list-item" id="sli-${s.scanId}" onclick="selectScan(${s.scanId})">
+            <span class="sli-date">${dateStr}</span>
+            <span class="sli-meta">
+              <span class="trigger-badge ${s.triggeredBy || ''}" style="font-size:10px;padding:1px 6px">${s.triggeredBy || ''}</span>
+              <span class="sli-count">${s.totalFetched ?? 0} jobs</span>
+            </span>
+          </div>`;
+      }).join('');
+
+      // Auto-select the first (latest) scan
+      if (list.length > 0) {
+        selectScan(list[0].scanId);
+      }
+    } catch (_) {}
+  }
+
+  async function selectScan(id) {
+    if (!id) return;   // guard against undefined/null passed from an uninitialised list
+    // Highlight selected item
+    document.querySelectorAll('.scan-list-item').forEach(el => el.classList.remove('selected'));
+    const item = document.getElementById('sli-' + id);
+    if (item) item.classList.add('selected');
+    selectedScanId = id;
+
+    // Show placeholder while loading
+    document.getElementById('scan-detail-placeholder').style.display = 'block';
+    document.getElementById('scan-content').style.display            = 'none';
+
+    try {
+      const res = await fetch(`/api/v1/scan/log/${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      document.getElementById('scan-detail-placeholder').style.display = 'none';
+      document.getElementById('scan-content').style.display            = 'block';
+
+      const started  = data.startedAt  ? new Date(data.startedAt)  : null;
+      const finished = data.finishedAt ? new Date(data.finishedAt) : null;
+
+      const fmtTime = d => d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      const fmtDate = d => d.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' });
+
+      document.getElementById('scan-detail-title').textContent = started
+        ? `Scan — ${fmtDate(started)}`
+        : 'Scan Detail';
+
+      document.getElementById('scan-time-range').textContent = started
+        ? `${fmtDate(started)}, ${fmtTime(started)}` + (finished ? ` → ${fmtTime(finished)}` : ' (running…)')
+        : '';
+
+      const tb = document.getElementById('scan-trigger-badge');
+      tb.textContent = data.triggeredBy || '';
+      tb.className   = `trigger-badge ${data.triggeredBy || ''}`;
+
+      const fetched  = data.totalFetched  ?? 0;
+      const ingested = data.totalIngested ?? 0;
+      const durSec   = (started && finished) ? Math.round((finished - started) / 1000) : null;
+
+      document.getElementById('kpi-fetched').textContent  = fetched;
+      document.getElementById('kpi-ingested').textContent = ingested;
+      document.getElementById('kpi-seen').textContent     = Math.max(0, fetched - ingested);
+      document.getElementById('kpi-duration').textContent = durSec !== null ? durSec + 's' : '—';
+
+      const entries     = data.entries || [];
+      const maxIngested = entries.reduce((m, e) => Math.max(m, e.ingested), 1);
+      document.getElementById('cb-subtitle').textContent =
+        `${entries.length} companies · ${ingested} new jobs`;
+      document.getElementById('cb-rows').innerHTML = entries
+        .slice().sort((a, b) => b.ingested - a.ingested)
+        .map(e => {
+          const pct  = Math.round((e.ingested / maxIngested) * 100);
+          const zero = e.ingested === 0 ? ' zero' : '';
+          return `<div class="cb-row">
+            <span class="cb-company">${e.company}</span>
+            <div class="cb-bar-wrap"><div class="cb-bar-fill${zero}" style="width:${pct}%"></div></div>
+            <span class="cb-num${zero}">${e.ingested}</span>
+          </div>`;
+        }).join('');
+    } catch (_) {}
+  }
+
+  // Keep old name as alias so triggerCollect() still works after a new scan
+  async function loadScanLog() { await loadScanLogs(); }
+
+  // ── Collect trigger (SSE streaming) ──────────────────────────────────────────
+  async function triggerCollect() {
+    const btn      = document.getElementById('collect-btn');
+    const progress = document.getElementById('collect-progress');
+    const cpGrid   = document.getElementById('cp-grid');
+    const cpTitle  = document.getElementById('cp-title');
+    const cpCount  = document.getElementById('cp-done-count');
+
+    btn.disabled = true; btn.textContent = 'Collecting…';
+    progress.classList.add('visible');
+    cpGrid.innerHTML = '';
+    cpTitle.textContent = 'Collecting jobs…';
+    cpCount.textContent = '';
+
+    setStatus('Collecting jobs from all companies — this may take a few minutes…', true);
+
+    return new Promise(resolve => {
+      let doneCount = 0;
+
+      // EventSource only supports GET; use fetch + ReadableStream to read the SSE POST response
+      fetch('/api/v1/collect/stream', { method: 'POST' })
+        .then(res => {
+          if (!res.ok) throw new Error(res.statusText);
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = '';
+
+          function pump() {
+            return reader.read().then(({ done, value }) => {
+              if (done) return;
+              buf += decoder.decode(value, { stream: true });
+              const parts = buf.split('\n\n');
+              buf = parts.pop();           // keep incomplete last chunk
+
+              for (const block of parts) {
+                let eventName = 'message', dataStr = '';
+                for (const line of block.split('\n')) {
+                  if (line.startsWith('event:')) eventName = line.slice(6).trim();
+                  if (line.startsWith('data:'))  dataStr   = line.slice(5).trim();
+                }
+                if (!dataStr) continue;
+                let payload = {};
+                try { payload = JSON.parse(dataStr); } catch (_) {}
+
+                if (eventName === 'company') {
+                  doneCount++;
+                  const cls = payload.fetched === 0 ? 'zero' : 'done';
+                  const el  = document.createElement('span');
+                  el.className = `cp-item ${cls}`;
+                  el.textContent = payload.fetched === 0
+                    ? `${payload.company}: —`
+                    : `✓ ${payload.company}: ${payload.fetched}`;
+                  cpGrid.appendChild(el);
+                  cpCount.textContent = `${doneCount} done`;
+
+                } else if (eventName === 'busy') {
+                  cpTitle.textContent = '⚠ Already running';
+                  setStatus('A scan is already in progress — please wait for it to finish.', true);
+
+                } else if (eventName === 'done') {
+                  cpTitle.textContent = `Done — ${payload.collected || 0} fetched, ${payload.ingested || 0} new`;
+                  setStatus(`Done — fetched ${payload.collected || 0} raw jobs, ${payload.ingested || 0} new ingested.`, true);
+                  load();
+                  loadScanLog();
+
+                } else if (eventName === 'error') {
+                  cpTitle.textContent = '✗ Collection failed';
+                  setStatus('Collection failed. Check server logs.', true);
+                }
+              }
+
+              return pump();
+            });
+          }
+
+          return pump();
+        })
+        .catch(() => setStatus('Collection failed. Check server logs.', true))
+        .finally(() => {
+          btn.disabled = false; btn.textContent = '⟳ Collect Jobs Now';
+          resolve();
+        });
+    });
+  }
+
+  // ── Company dashboard ─────────────────────────────────────────────────────────
+
+  let allCompanies = [];   // from /api/v1/companies — includes careerUrl, sourceType, priority
+
+  async function loadCompanies() {
+    try {
+      const res = await fetch('/api/v1/companies');
+      if (!res.ok) return;
+      allCompanies = await res.json();
+      renderCompanyTab();
+    } catch (_) {}
+  }
+
+  /**
+   * Build per-company stats from allJobs, merge with allCompanies metadata,
+   * and render three tier tables.
+   */
+  function renderCompanyTab() {
+    const wrap = document.getElementById('co-table-wrap');
+
+    if (!allCompanies.length) {
+      wrap.innerHTML = '<div class="co-empty">No company data yet. Run a scan first.</div>';
+      return;
+    }
+
+    // Aggregate job stats per company name from allJobs
+    const statsMap = {};
+    for (const j of allJobs) {
+      if (!statsMap[j.companyName]) {
+        statsMap[j.companyName] = { total:0, applyNow:0, apply:0, consider:0, skip:0,
+                                    applied:0, archived:0, scoreSum:0, scoreCount:0 };
+      }
+      const s = statsMap[j.companyName];
+      s.total++;
+      if (j.recommendation === 'APPLY_NOW') s.applyNow++;
+      else if (j.recommendation === 'APPLY') s.apply++;
+      else if (j.recommendation === 'CONSIDER') s.consider++;
+      else if (j.recommendation === 'SKIP') s.skip++;
+      if (j.jobStatus === 'APPLIED')  s.applied++;
+      if (j.jobStatus === 'ARCHIVED') s.archived++;
+      if (j.overallScore > 0) { s.scoreSum += j.overallScore; s.scoreCount++; }
+    }
+
+    // Group companies by tier
+    const byTier = { A: [], B: [], C: [] };
+    for (const co of allCompanies) {
+      byTier[co.priority].push(co);
+    }
+
+    const TIER_LABELS = { A: '🥇 Priority A — Highest priority', B: '🥈 Priority B — Very strong targets', C: '🥉 Priority C — Additional high-quality targets' };
+
+    let html = '';
+    let totalWithJobs = 0;
+
+    for (const tier of ['A', 'B', 'C']) {
+      const companies = byTier[tier];
+      if (!companies.length) continue;
+
+      const rows = companies.map(co => {
+        const s = statsMap[co.name] || { total:0, applyNow:0, apply:0, consider:0, skip:0, applied:0, archived:0, scoreSum:0, scoreCount:0 };
+        if (s.total > 0) totalWithJobs++;
+        const avg = s.scoreCount > 0 ? Math.round(s.scoreSum / s.scoreCount) : null;
+        const avgClass = avg === null ? 'none' : avg >= 70 ? 'high' : avg >= 45 ? 'medium' : 'low';
+        const avgText  = avg !== null ? avg : '—';
+
+        // Stacked rec bar
+        const recBar = s.total > 0
+          ? `<div class="co-rec-bar">
+               ${s.applyNow ? `<div class="co-rec-seg APPLY_NOW" style="flex:${s.applyNow}" title="Apply Now: ${s.applyNow}"></div>` : ''}
+               ${s.apply    ? `<div class="co-rec-seg APPLY"     style="flex:${s.apply}"    title="Apply: ${s.apply}"></div>` : ''}
+               ${s.consider ? `<div class="co-rec-seg CONSIDER"  style="flex:${s.consider}" title="Consider: ${s.consider}"></div>` : ''}
+               ${s.skip     ? `<div class="co-rec-seg SKIP"      style="flex:${s.skip}"     title="Skip: ${s.skip}"></div>` : ''}
+             </div>`
+          : '<div class="co-rec-bar"><div class="co-rec-seg empty"></div></div>';
+
+        const pills = [
+          s.applied  ? `<span class="co-pill applied">✓ ${s.applied} applied</span>`  : '',
+          s.archived ? `<span class="co-pill archived">📁 ${s.archived} archived</span>` : ''
+        ].filter(Boolean).join('');
+
+        const nameCell = co.careerUrl
+          ? `<a href="${co.careerUrl}" target="_blank" rel="noopener">${co.name}</a>`
+          : co.name;
+
+        const srcLabel = { GREENHOUSE:'Greenhouse', LEVER:'Lever', LINKEDIN:'LinkedIn',
+                           AMAZON:'Amazon', GOOGLE:'Google', MICROSOFT:'Microsoft',
+                           JPMORGAN:'JPMorgan', ORACLE:'Oracle' }[co.sourceType] || co.sourceType || '';
+
+        const escapedName = co.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `<tr style="cursor:pointer" onclick="openCompanyDrawer('${escapedName}')">
+          <td>
+            <div class="co-name">${nameCell}</div>
+            <div class="co-src">${srcLabel}</div>
+          </td>
+          <td class="co-num ${s.total === 0 ? 'zero' : ''}">${s.total || '—'}</td>
+          <td>${recBar}</td>
+          <td class="co-num ${s.applyNow === 0 ? 'zero' : ''}" style="color:${s.applyNow ? '#16a34a' : ''}">${s.applyNow || '—'}</td>
+          <td class="co-num ${s.apply === 0 ? 'zero' : ''}">${s.apply || '—'}</td>
+          <td class="co-num ${s.consider === 0 ? 'zero' : ''}">${s.consider || '—'}</td>
+          <td class="co-num ${s.skip === 0 ? 'zero' : ''}">${s.skip || '—'}</td>
+          <td class="co-score ${avgClass}">${avgText}</td>
+          <td><div class="co-status-pills">${pills}</div></td>
+        </tr>`;
+      }).join('');
+
+      html += `
+        <div class="co-section">
+          <div class="co-section-title">
+            <span class="tier-badge ${tier}">${tier}</span>
+            ${TIER_LABELS[tier]}
+          </div>
+          <table class="co-table">
+            <thead><tr>
+              <th>Company</th>
+              <th class="num">Jobs</th>
+              <th>Match Breakdown</th>
+              <th class="num" style="color:#16a34a">Apply Now</th>
+              <th class="num" style="color:#3b82d4">Apply</th>
+              <th class="num" style="color:#d97706">Consider</th>
+              <th class="num" style="color:#dc2626">Skip</th>
+              <th class="num">Avg Score</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    wrap.innerHTML = html;
+    document.getElementById('tab-companies-count').textContent = totalWithJobs;
+  }
+
+  load();
+  loadScanLogs();
+  loadCompanies();
+
+  // ── Company detail drawer ─────────────────────────────────────────────────────
+  function openCompanyDrawer(name) {
+    const jobs   = allJobs.filter(j => j.companyName === name);
+    const s = jobs.reduce((acc, j) => {
+      acc.total++;
+      if (j.recommendation === 'APPLY_NOW') acc.applyNow++;
+      else if (j.recommendation === 'APPLY')    acc.apply++;
+      else if (j.recommendation === 'CONSIDER') acc.consider++;
+      else if (j.recommendation === 'SKIP')     acc.skip++;
+      if (j.jobStatus === 'APPLIED')  acc.applied++;
+      if (j.jobStatus === 'ARCHIVED') acc.archived++;
+      if (j.overallScore > 0) { acc.scoreSum += j.overallScore; acc.scoreCount++; }
+      return acc;
+    }, { total:0, applyNow:0, apply:0, consider:0, skip:0, applied:0, archived:0, scoreSum:0, scoreCount:0 });
+
+    const avg = s.scoreCount > 0 ? Math.round(s.scoreSum / s.scoreCount) : null;
+
+    document.getElementById('co-drawer-title').textContent = name;
+    document.getElementById('co-drawer-kpis').innerHTML = `
+      <div class="co-drawer-kpi"><div class="k-label">Total Jobs</div><div class="k-val">${s.total}</div></div>
+      <div class="co-drawer-kpi"><div class="k-label">Apply Now</div><div class="k-val green">${s.applyNow}</div></div>
+      <div class="co-drawer-kpi"><div class="k-label">Apply</div><div class="k-val blue">${s.apply}</div></div>
+      <div class="co-drawer-kpi"><div class="k-label">Consider</div><div class="k-val amber">${s.consider}</div></div>
+      <div class="co-drawer-kpi"><div class="k-label">Skip</div><div class="k-val">${s.skip}</div></div>
+      <div class="co-drawer-kpi"><div class="k-label">Applied</div><div class="k-val purple">${s.applied}</div></div>
+      <div class="co-drawer-kpi"><div class="k-label">Archived</div><div class="k-val">${s.archived}</div></div>
+      <div class="co-drawer-kpi"><div class="k-label">Avg Score</div><div class="k-val">${avg !== null ? avg : '—'}</div></div>
+    `;
+
+    const sortedJobs = jobs.slice().sort((a, b) => (b.overallScore || 0) - (a.overallScore || 0));
+    document.getElementById('co-drawer-cards').innerHTML = sortedJobs.length
+      ? sortedJobs.map(j => renderCard(j)).join('')
+      : '<div style="color:#57606a;font-size:13px">No jobs yet for this company.</div>';
+
+    document.getElementById('co-drawer-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDrawer() {
+    document.getElementById('co-drawer-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+</script>
+
+<!-- ── Company detail drawer ── -->
+<div class="co-drawer-overlay" id="co-drawer-overlay" onclick="if(event.target===this)closeDrawer()">
+  <div class="co-drawer">
+    <div class="co-drawer-header">
+      <h2 id="co-drawer-title"></h2>
+      <button class="co-drawer-close" onclick="closeDrawer()">✕</button>
+    </div>
+    <div class="co-drawer-body">
+      <div class="co-drawer-kpis" id="co-drawer-kpis"></div>
+      <div class="co-drawer-divider">Job Matches</div>
+      <div class="co-drawer-cards" id="co-drawer-cards"></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
