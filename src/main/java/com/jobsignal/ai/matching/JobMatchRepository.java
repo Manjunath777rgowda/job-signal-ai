@@ -16,4 +16,6 @@ public interface JobMatchRepository extends JpaRepository<JobMatch, Long> {
     List<JobMatch> findAllOrderByPostedDesc();
 
     boolean existsByJobId(Long jobId);
+
+    java.util.Optional<JobMatch> findByJobId(Long jobId);
 }

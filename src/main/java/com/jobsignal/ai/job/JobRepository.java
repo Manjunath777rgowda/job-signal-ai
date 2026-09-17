@@ -7,8 +7,12 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 
+import java.util.Optional;
+
 public interface JobRepository extends JpaRepository<Job, Long> {
     boolean existsByCompanyIdAndExternalJobId(Long companyId, String externalJobId);
+
+    Optional<Job> findByCompanyIdAndExternalJobId(Long companyId, String externalJobId);
 
     @Modifying
     @Query("UPDATE Job j SET j.lastSeenAt = :now WHERE j.company.id = :companyId AND j.externalJobId = :externalJobId")

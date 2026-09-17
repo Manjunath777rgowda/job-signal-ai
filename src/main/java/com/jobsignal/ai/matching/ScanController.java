@@ -1,19 +1,33 @@
 package com.jobsignal.ai.matching;
 
+import com.jobsignal.ai.job.Job;
 import com.jobsignal.ai.job.JobStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.StringJoiner;
 
 @RestController
 @RequestMapping("/api/v1")
 public class ScanController {
 
-    private final JobMatchRepository jobMatchRepo;
+    private static final Logger log = LoggerFactory.getLogger(ScanController.class);
 
-    public ScanController(JobMatchRepository jobMatchRepo) {
-        this.jobMatchRepo = jobMatchRepo;
+    private final JobMatchRepository jobMatchRepo;
+    private final com.jobsignal.ai.job.JobRepository jobRepo;
+    private final MatchingService    matchingService;
+
+    public ScanController(JobMatchRepository jobMatchRepo,
+                          com.jobsignal.ai.job.JobRepository jobRepo,
+                          MatchingService matchingService) {
+        this.jobMatchRepo    = jobMatchRepo;
+        this.jobRepo         = jobRepo;
+        this.matchingService = matchingService;
     }
 
     /**
@@ -44,5 +58,91 @@ public class ScanController {
                 .toList();
 
         return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Re-evaluates all existing job matches using the current matching rules / resume profile.
+     * Preserves job status (ACTIVE, APPLIED, ARCHIVED) and only recalculates scores, fit,
+     * recommendations, strengths, and gaps.
+     */
+    @PostMapping("/scan/re-evaluate")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> reEvaluate() {
+        List<JobMatch> matches = jobMatchRepo.findAll();
+        int evaluatedCount = 0;
+
+        for (JobMatch match : matches) {
+            Job job = match.getJob();
+            if (job == null) continue;
+
+            MatchAnalysisRequest req = new MatchAnalysisRequest();
+            req.setJobTitle(job.getTitle());
+            req.setJobDescription(job.getDescription() != null ? job.getDescription() : "");
+
+            MatchAnalysisResponse analysis = matchingService.analyze(req);
+
+            match.setSkillScore(analysis.getSkillScore());
+            match.setExperienceScore(analysis.getExperienceScore());
+            match.setResponsibilityScore(analysis.getResponsibilityScore());
+            match.setDomainScore(analysis.getDomainScore());
+            match.setLocationScore(analysis.getLocationScore());
+            match.setOtherScore(analysis.getOtherScore());
+            match.setOverallScore(analysis.getOverallScore());
+            match.setInterviewFit(analysis.getInterviewFit());
+            match.setRecommendation(analysis.getRecommendation());
+            match.setStrengths(joinTags(analysis.getStrengths()));
+            match.setGaps(joinTags(analysis.getGaps()));
+
+            jobMatchRepo.save(match);
+            evaluatedCount++;
+        }
+
+        log.info("Re-evaluated {} job matches successfully", evaluatedCount);
+        return ResponseEntity.ok(Map.of(
+                "evaluated", evaluatedCount,
+                "message", "Re-evaluation completed successfully"
+        ));
+    }
+
+    /**
+     * Cleans up all jobs and job matches that are NOT APPLIED or ARCHIVED (i.e. ACTIVE/unmarked).
+     * Preserves user-tracked jobs (APPLIED, ARCHIVED).
+     */
+    @PostMapping("/scan/cleanup")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> cleanup() {
+        List<JobMatch> matches = jobMatchRepo.findAll();
+        int deletedMatches = 0;
+        int deletedJobs = 0;
+
+        for (JobMatch match : matches) {
+            Job job = match.getJob();
+            if (job != null && job.getStatus() != JobStatus.APPLIED && job.getStatus() != JobStatus.ARCHIVED) {
+                jobMatchRepo.delete(match);
+                deletedMatches++;
+            }
+        }
+
+        List<Job> allJobs = jobRepo.findAll();
+        for (Job job : allJobs) {
+            if (job.getStatus() != JobStatus.APPLIED && job.getStatus() != JobStatus.ARCHIVED) {
+                jobRepo.delete(job);
+                deletedJobs++;
+            }
+        }
+
+        log.info("Cleaned up {} unapplied/unarchived jobs and {} matches", deletedJobs, deletedMatches);
+        return ResponseEntity.ok(Map.of(
+                "deletedJobs", deletedJobs,
+                "deletedMatches", deletedMatches,
+                "message", "Cleanup completed successfully"
+        ));
+    }
+
+    private String joinTags(List<String> items) {
+        if (items == null || items.isEmpty()) return "";
+        StringJoiner sj = new StringJoiner(", ");
+        items.forEach(sj::add);
+        return sj.toString();
     }
 }

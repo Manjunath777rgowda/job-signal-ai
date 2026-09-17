@@ -114,6 +114,8 @@ Flyway runs all migrations automatically on startup. Open `http://localhost:8888
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/scan` | All scored jobs (query param `sort=score\|posted`) |
+| `POST` | `/api/v1/scan/re-evaluate` | Re-evaluate matches for all jobs (preserves job status) |
+| `POST` | `/api/v1/scan/cleanup` | Cleans up all unapplied and unarchived jobs |
 | `GET` | `/api/v1/companies` | All companies with priority tiers |
 | `POST` | `/api/v1/collect` | Trigger a full collection (fire-and-wait) |
 | `POST` | `/api/v1/collect/stream` | Trigger a full collection (SSE streaming) |

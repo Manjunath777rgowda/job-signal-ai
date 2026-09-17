@@ -18,9 +18,6 @@ import java.util.Set;
  *   Location          5%
  *   Other             5%
  *
- * Seniority signals are no longer a scored dimension. Junior/entry-level
- * mismatch is still detected and emitted as a gap for informational purposes.
- *
  * The profile data is derived directly from the uploaded resume (Manjunath R).
  */
 @Service
@@ -46,11 +43,6 @@ public class MatchingService {
             "maven", "git", "linux", "prometheus", "grafana", "graylog",
             "dsa", "data structures", "oops", "object oriented",
             "distributed systems", "system design", "architecture", "api"
-    );
-
-    // ── Seniority mismatch signals (informational only — no scored dimension) ─
-    private static final Set<String> NON_MATCHING_SENIORITY = Set.of(
-            "junior", "entry level", "associate", "intern", "fresher"
     );
 
     // ── Backend / Platform domain keywords ─────────────────────────────────
@@ -142,12 +134,6 @@ public class MatchingService {
                 otherScore          * 0.05;
 
         int overallScore = (int) Math.round(Math.min(100, Math.max(0, overallDouble)));
-
-        // ── Seniority gap detection (informational only) ───────────────────────
-        boolean nonMatchSeniority = NON_MATCHING_SENIORITY.stream().anyMatch(text::contains);
-        if (nonMatchSeniority) {
-            gaps.add("Seniority mismatch — role targets junior engineers");
-        }
 
         // ── Gap detection ─────────────────────────────────────────────────────
         for (String gap : KNOWN_GAP_SKILLS) {

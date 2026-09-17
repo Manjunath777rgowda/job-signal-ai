@@ -9,6 +9,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -38,6 +39,9 @@ public class LinkedInCollector extends CompanyCollector {
     // India geo-id on LinkedIn
     private static final String GEO_INDIA = "102713980";
 
+    /** Mutex to serialize requests to LinkedIn across concurrent virtual threads. */
+    private static final Object LINKEDIN_LOCK = new Object();
+
     @Override
     public SourceType sourceType() {
         return SourceType.LINKEDIN;
@@ -54,7 +58,7 @@ public class LinkedInCollector extends CompanyCollector {
                 + "&start=0";
 
         try {
-            String html = get(url);
+            String html = getWithRetry(url);
             Document doc = Jsoup.parse(html);
 
             // Each job is a <li> containing a div with data-entity-urn
@@ -70,6 +74,14 @@ public class LinkedInCollector extends CompanyCollector {
                 String urn = card.attr("data-entity-urn");   // urn:li:jobPosting:12345
                 String jobId = urn.replaceAll(".*:(\\d+)$", "$1");
                 if (jobId.equals(urn) || jobId.isBlank()) continue; // parse failed
+
+                // Verify company name matches target to prevent keyword spillover
+                Element compEl = card.selectFirst("h4.base-search-card__subtitle, .job-search-card__company-name");
+                String cardCompany = compEl != null ? compEl.text().trim() : "";
+                if (!matchesTargetCompany(cardCompany, company.getName())) {
+                    log.debug("[LinkedIn] Skipping mismatch company '{}' for target '{}'", cardCompany, company.getName());
+                    continue;
+                }
 
                 // Title
                 Element titleEl = card.selectFirst("h3.base-search-card__title, h3");
@@ -91,18 +103,46 @@ public class LinkedInCollector extends CompanyCollector {
                         location,
                         "https://www.linkedin.com/jobs/view/" + jobId
                 ));
-
-                // polite rate-limit
-                Thread.sleep(400);
             }
 
             log.info("[LinkedIn] {}: {} relevant jobs collected", company.getName(), results.size());
             return results;
 
         } catch (Exception e) {
-            log.error("[LinkedIn] '{}' failed: {}", company.getName(), e.getMessage());
+            log.warn("[LinkedIn] '{}' failed: {}", company.getName(), e.getMessage());
             return Collections.emptyList();
         }
+    }
+
+    /**
+     * Serialized HTTP GET with exponential backoff on HTTP 429.
+     */
+    private String getWithRetry(String url) throws IOException, InterruptedException {
+        int maxRetries = 3;
+        long backoff = 2000;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            synchronized (LINKEDIN_LOCK) {
+                // Minimum spacing between consecutive LinkedIn requests
+                Thread.sleep(1200);
+                try {
+                    return get(url);
+                } catch (IOException e) {
+                    if (e.getMessage() != null && e.getMessage().contains("HTTP 429")) {
+                        if (attempt < maxRetries) {
+                            log.warn("[LinkedIn] 429 rate limited, backing off for {} ms (attempt {}/{})", backoff, attempt, maxRetries);
+                        } else {
+                            throw e;
+                        }
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+            Thread.sleep(backoff);
+            backoff *= 2;
+        }
+        throw new IOException("Failed after retries");
     }
 
     /**
@@ -111,7 +151,7 @@ public class LinkedInCollector extends CompanyCollector {
      */
     private String fetchDescription(String jobId) {
         try {
-            String html = get(JD_URL + jobId);
+            String html = getWithRetry(JD_URL + jobId);
             Document doc = Jsoup.parse(html);
 
             // Primary description block
@@ -131,5 +171,36 @@ public class LinkedInCollector extends CompanyCollector {
             log.debug("[LinkedIn] JD fetch failed for jobId={}: {}", jobId, e.getMessage());
             return "";
         }
+    }
+
+    private boolean matchesTargetCompany(String actualCompany, String targetCompany) {
+        if (actualCompany == null || actualCompany.isBlank() || targetCompany == null || targetCompany.isBlank()) {
+            return false;
+        }
+        String actual = actualCompany.trim().toLowerCase();
+        String target = targetCompany.trim().toLowerCase();
+
+        // Exact match check
+        if (actual.equals(target)) {
+            return true;
+        }
+
+        // Special aliases for common tech companies
+        if (target.equals("meta") && (actual.equals("facebook") || actual.startsWith("meta "))) {
+            return true;
+        }
+        if (target.equals("alphabet") || (target.equals("google") && actual.equals("google"))) {
+            return true;
+        }
+
+        // Word boundary match (e.g. "Amazon Web Services" matches "Amazon", but "Mitel" does not match "Meta")
+        String[] actualWords = actual.split("[\\s,.-]+");
+        for (String word : actualWords) {
+            if (word.equals(target)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

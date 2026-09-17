@@ -27,14 +27,20 @@
     .header-left h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
     .header-left span { font-size: 12px; color: #8b949e; margin-top: 2px; display: block; }
 
-    .collect-btn {
-      background: #238636; color: #fff; border: none;
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .collect-btn, .reeval-btn, .cleanup-btn {
+      color: #fff; border: none;
       padding: 8px 16px; border-radius: 6px;
       font-size: 13px; font-weight: 600;
       cursor: pointer; transition: background 0.15s; white-space: nowrap;
     }
+    .collect-btn { background: #238636; }
     .collect-btn:hover { background: #2ea043; }
-    .collect-btn:disabled { background: #57606a; cursor: not-allowed; }
+    .collect-btn:disabled, .reeval-btn:disabled, .cleanup-btn:disabled { background: #57606a; cursor: not-allowed; }
+    .reeval-btn { background: #1f6feb; }
+    .reeval-btn:hover { background: #388bfd; }
+    .cleanup-btn { background: #6e7681; }
+    .cleanup-btn:hover { background: #8b949e; }
 
     /* ── Layout ── */
     .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
@@ -246,7 +252,7 @@
     .confirm-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,.45);
       display: flex; align-items: center; justify-content: center;
-      z-index: 1000; display: none;
+      z-index: 2000; display: none;
     }
     .confirm-overlay.visible { display: flex; }
     .confirm-box {
@@ -438,7 +444,11 @@
     <h1>JobSignal AI</h1>
     <span>Resume match analysis — Manjunath R</span>
   </div>
-  <button class="collect-btn" id="collect-btn" onclick="triggerCollect()">⟳ Collect Jobs Now</button>
+  <div class="header-actions">
+    <button class="cleanup-btn" id="cleanup-btn" onclick="triggerCleanup()">🧹 Clean Unmarked</button>
+    <button class="reeval-btn" id="reeval-btn" onclick="triggerReEvaluate()">⚡ Re-Evaluate Matches</button>
+    <button class="collect-btn" id="collect-btn" onclick="triggerCollect()">⟳ Collect Jobs Now</button>
+  </div>
 </header>
 
 <!-- ── Live collect progress ── -->
@@ -954,6 +964,10 @@
         const job = allJobs.find(j => j.jobId === jobId);
         if (job) job.jobStatus = 'ARCHIVED';
         renderCards();
+        renderCompanyTab();
+        if (currentDrawerCompany) {
+          openCompanyDrawer(currentDrawerCompany);
+        }
       }
     } catch (_) {}
   }
@@ -969,6 +983,10 @@
         const job = allJobs.find(j => j.jobId === jobId);
         if (job) job.jobStatus = 'ACTIVE';
         renderCards();
+        renderCompanyTab();
+        if (currentDrawerCompany) {
+          openCompanyDrawer(currentDrawerCompany);
+        }
       }
     } catch (_) {}
   }
@@ -988,8 +1006,8 @@
   }
   async function confirmAction() {
     if (!pendingAction) return;
-    closeConfirm();
     const { jobId } = pendingAction;
+    closeConfirm();
     try {
       // Archive instead of hard-delete — preserves the deduplication key
       const res = await fetch(`/api/v1/jobs/${jobId}/status`, {
@@ -998,8 +1016,13 @@
         body: JSON.stringify({ status: 'ARCHIVED' })
       });
       if (res.ok) {
-        allJobs = allJobs.filter(j => j.jobId !== jobId);
+        const job = allJobs.find(j => j.jobId === jobId);
+        if (job) job.jobStatus = 'ARCHIVED';
         renderCards();
+        renderCompanyTab();
+        if (currentDrawerCompany) {
+          openCompanyDrawer(currentDrawerCompany);
+        }
       }
     } catch (_) {}
   }
@@ -1049,6 +1072,10 @@
         const job = allJobs.find(j => j.jobId === jobId);
         if (job) job.jobStatus = 'APPLIED';
         renderCards();
+        renderCompanyTab();
+        if (currentDrawerCompany) {
+          openCompanyDrawer(currentDrawerCompany);
+        }
       }
     } catch (_) {}
   }
@@ -1068,6 +1095,10 @@
         const job = allJobs.find(j => j.jobId === jobId);
         if (job) job.jobStatus = 'ACTIVE';
         renderCards();
+        renderCompanyTab();
+        if (currentDrawerCompany) {
+          openCompanyDrawer(currentDrawerCompany);
+        }
       }
     } catch (_) {}
   }
@@ -1185,6 +1216,51 @@
 
   // Keep old name as alias so triggerCollect() still works after a new scan
   async function loadScanLog() { await loadScanLogs(); }
+
+  // ── Re-evaluate all jobs against latest scoring rules / profile ───────────────
+  async function triggerReEvaluate() {
+    const btn = document.getElementById('reeval-btn');
+    btn.disabled = true;
+    btn.textContent = 'Evaluating…';
+    setStatus('Re-evaluating all job matches with updated scoring rules…', true);
+
+    try {
+      const res = await fetch('/api/v1/scan/re-evaluate', { method: 'POST' });
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      setStatus(`Re-evaluation complete — updated ${data.evaluated || 0} job matches.`, true);
+      await load();
+    } catch (e) {
+      setStatus('Re-evaluation failed. Check server logs.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '⚡ Re-Evaluate Matches';
+    }
+  }
+
+  // ── Cleanup unapplied / unarchived jobs ──────────────────────────────────────
+  async function triggerCleanup() {
+    if (!confirm('This will delete all jobs that are NOT marked as Applied or Archived, allowing a fresh scan. Continue?')) {
+      return;
+    }
+    const btn = document.getElementById('cleanup-btn');
+    btn.disabled = true;
+    btn.textContent = 'Cleaning…';
+    setStatus('Cleaning up unapplied and unarchived jobs…', true);
+
+    try {
+      const res = await fetch('/api/v1/scan/cleanup', { method: 'POST' });
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      setStatus(`Cleanup complete — removed ${data.deletedJobs || 0} jobs. Ready for fresh scan.`, true);
+      await load();
+    } catch (e) {
+      setStatus('Cleanup failed. Check server logs.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🧹 Clean Unmarked';
+    }
+  }
 
   // ── Collect trigger (SSE streaming) ──────────────────────────────────────────
   async function triggerCollect() {
@@ -1408,7 +1484,10 @@
   loadCompanies();
 
   // ── Company detail drawer ─────────────────────────────────────────────────────
+  let currentDrawerCompany = null;
+
   function openCompanyDrawer(name) {
+    currentDrawerCompany = name;
     const jobs   = allJobs.filter(j => j.companyName === name);
     const s = jobs.reduce((acc, j) => {
       acc.total++;
@@ -1446,6 +1525,7 @@
   }
 
   function closeDrawer() {
+    currentDrawerCompany = null;
     document.getElementById('co-drawer-overlay').classList.remove('open');
     document.body.style.overflow = '';
   }

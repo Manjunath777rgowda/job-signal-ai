@@ -82,14 +82,56 @@ public class JobIngestionService {
                 continue;
             }
 
-            // Deduplicate — job already exists; just refresh its lastSeenAt
-            if (jobRepo.existsByCompanyIdAndExternalJobId(company.getId(), raw.getExternalId())) {
-                jobRepo.touchLastSeenAt(company.getId(), raw.getExternalId(), Instant.now());
+            Optional<Job> existingJobOpt = jobRepo.findByCompanyIdAndExternalJobId(company.getId(), raw.getExternalId());
+
+            if (existingJobOpt.isPresent()) {
+                // Job already exists — update details (title, description, URL, location, lastSeenAt)
+                // but preserve user actions/status (APPLIED, ARCHIVED, etc.)
+                Job existingJob = existingJobOpt.get();
+                existingJob.setTitle(raw.getTitle());
+                if (raw.getDescription() != null && !raw.getDescription().isBlank()) {
+                    existingJob.setDescription(raw.getDescription());
+                }
+                if (raw.getLocation() != null && !raw.getLocation().isBlank()) {
+                    existingJob.setLocation(raw.getLocation());
+                }
+                if (raw.getJobUrl() != null && !raw.getJobUrl().isBlank()) {
+                    existingJob.setJobUrl(raw.getJobUrl());
+                }
+                existingJob.setLastSeenAt(Instant.now());
+                final Job savedJob = jobRepo.save(existingJob);
+
+                // Re-calculate and update match analysis
+                MatchAnalysisRequest req = new MatchAnalysisRequest();
+                req.setJobTitle(savedJob.getTitle());
+                req.setJobDescription(savedJob.getDescription() != null ? savedJob.getDescription() : "");
+                MatchAnalysisResponse analysis = matchingService.analyze(req);
+
+                JobMatch match = jobMatchRepo.findByJobId(savedJob.getId()).orElseGet(() -> {
+                    JobMatch m = new JobMatch();
+                    m.setJob(savedJob);
+                    m.setResumeProfile(profile);
+                    return m;
+                });
+
+                match.setSkillScore(analysis.getSkillScore());
+                match.setExperienceScore(analysis.getExperienceScore());
+                match.setResponsibilityScore(analysis.getResponsibilityScore());
+                match.setDomainScore(analysis.getDomainScore());
+                match.setLocationScore(analysis.getLocationScore());
+                match.setOtherScore(analysis.getOtherScore());
+                match.setOverallScore(analysis.getOverallScore());
+                match.setInterviewFit(analysis.getInterviewFit());
+                match.setRecommendation(analysis.getRecommendation());
+                match.setStrengths(join(analysis.getStrengths()));
+                match.setGaps(join(analysis.getGaps()));
+                jobMatchRepo.save(match);
+
                 updated++;
                 continue;
             }
 
-            // Persist job
+            // Persist new job
             Job job = new Job();
             job.setCompany(company);
             job.setExternalJobId(raw.getExternalId());
